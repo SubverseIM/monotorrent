@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <UseSemaphoreSlimExtensions>true</UseSemaphoreSlimExtensions>
     <UseSimpleSpinLock>true</UseSimpleSpinLock>
     <UseThreadSwitcher>true</UseThreadSwitcher>
   </PropertyGroup>

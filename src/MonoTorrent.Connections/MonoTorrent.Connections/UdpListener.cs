@@ -40,85 +40,41 @@ using ReusableTasks;
 
 namespace MonoTorrent.Connections
 {
-    public class UdpListener : SocketListener, ISocketMessageListener
+    public abstract class UdpListener : SocketListener, ISocketMessageListener
     {
         public event Action<ReadOnlyMemory<byte>, CompactEndPoint>? MessageReceived;
 
         Socket? Client { get; set; }
+        SocketAddress? sendAddress;
         SocketAddress? receiveAddress;
-        readonly SemaphoreSlim sendLocker = new SemaphoreSlim (1, 1);
 
-        public int? ReceiveBufferSize { get; set; }
-
-        public int? SendBufferSize { get; set; }
-
-        public UdpListener (IPEndPoint endpoint)
+        protected UdpListener (IPEndPoint endpoint)
             : base (endpoint)
         {
         }
 
-        public ReusableTask SendAsync (ReadOnlyMemory<byte> buffer, CompactEndPoint endpoint)
-            => SendAsync (buffer, endpoint, dontFragment: false);
-
-        internal async ReusableTask SendAsync (ReadOnlyMemory<byte> buffer, CompactEndPoint endpoint, bool dontFragment)
+        public async ReusableTask SendAsync (ReadOnlyMemory<byte> buffer, CompactEndPoint endpoint)
         {
-            await sendLocker.WaitAsync ().ConfigureAwait (false);
-            try {
-                var client = Client;
-                if (Status == ListenerStatus.PortNotFree)
-                    throw new InvalidOperationException ($"The listener could not bind to ${LocalEndPoint}. Choose a new listening endpoint.");
-                if (Status == ListenerStatus.NotListening || client == null)
-                    throw new InvalidOperationException ("You must invoke StartAsync before sending or receiving a message with this listener.");
+            if (Status == ListenerStatus.PortNotFree)
+                throw new InvalidOperationException ($"The listener could not bind to ${LocalEndPoint}. Choose a new listening endpoint.");
+            if (Status == ListenerStatus.NotListening || Client == null)
+                throw new InvalidOperationException ("You must invoke StartAsync before sending or receiving a message with this listener.");
 
-                var sendAddress = new SocketAddress (PreferredLocalEndPoint.AddressFamily);
-                if (!endpoint.TryWriteBytes (sendAddress))
-                    throw new InvalidOperationException ("Couldn't write compact endpoint to socketaddress");
-
-                if (!dontFragment) {
-                    await client.SendToAsync (buffer, SocketFlags.None, sendAddress).ConfigureAwait (false);
-                    return;
-                }
-
-                bool restoreDontFragment = false;
-                try {
-                    if (!client.DontFragment) {
-                        client.DontFragment = true;
-                        restoreDontFragment = true;
-                    }
-                    await client.SendToAsync (buffer, SocketFlags.None, sendAddress).ConfigureAwait (false);
-                } finally {
-                    if (restoreDontFragment) {
-                        try {
-                            client.DontFragment = false;
-                        } catch (ObjectDisposedException) {
-                        }
-                    }
-                }
-            } finally {
-                sendLocker.Release ();
-            }
+            if (!endpoint.TryWriteBytes (sendAddress!))
+                throw new InvalidOperationException ("Couldn't write compact endpoint to socketaddress");
+            await Client.SendToAsync (buffer, SocketFlags.None, sendAddress!).ConfigureAwait (false);
         }
 
         protected override void Start (CancellationToken token)
         {
             base.Start (token);
 
+            sendAddress = new SocketAddress (PreferredLocalEndPoint.AddressFamily);
             receiveAddress = new SocketAddress (PreferredLocalEndPoint.AddressFamily);
             var socket = new Socket (
                 PreferredLocalEndPoint.AddressFamily,
                 SocketType.Dgram,
                 ProtocolType.Udp);
-
-            if (ReceiveBufferSize.HasValue)
-                socket.ReceiveBufferSize = ReceiveBufferSize.Value;
-            if (SendBufferSize.HasValue)
-                socket.SendBufferSize = SendBufferSize.Value;
-
-            // Suppress Windows ICMP port-unreachable errors terminating the receive loop.
-            if (OperatingSystem.IsWindows ()) {
-                const int SIO_UDP_CONNRESET = unchecked((int) 0x9800000C);
-                socket.IOControl (SIO_UDP_CONNRESET, new byte[] { 0 }, null);
-            }
 
             socket.Bind (PreferredLocalEndPoint);
 
@@ -134,7 +90,7 @@ namespace MonoTorrent.Connections
 
         async void ReceiveAsync (Socket client, CancellationToken token)
         {
-            Memory<byte> buffer = new byte[65_536];
+            Memory<byte> buffer = new byte[8 * 1024];
             while (!token.IsCancellationRequested && receiveAddress is not null) {
                 try {
                     var bytesReceived = await client.ReceiveFromAsync (
@@ -148,7 +104,7 @@ namespace MonoTorrent.Connections
                     var msg = buffer.Slice (0, bytesReceived).ToArray ();
                     var endPoint = new CompactEndPoint (receiveAddress);
                     if (!token.IsCancellationRequested)
-                        RaiseMessageReceived (msg, endPoint);
+                        MessageReceived?.Invoke (msg, endPoint);
                 } catch (SocketException ex) {
                     // If the destination computer closes the connection
                     // we get error code 10054. We need to keep receiving on
@@ -160,11 +116,5 @@ namespace MonoTorrent.Connections
                 }
             }
         }
-
-        internal void ProcessDatagram (byte[] buffer, CompactEndPoint endpoint)
-            => RaiseMessageReceived (buffer.ToArray (), endpoint);
-
-        void RaiseMessageReceived (ReadOnlyMemory<byte> buffer, CompactEndPoint endpoint)
-            => MessageReceived?.Invoke (buffer, endpoint);
     }
 }

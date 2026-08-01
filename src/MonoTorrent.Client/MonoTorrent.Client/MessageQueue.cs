@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using MonoTorrent.Messages;
+using MonoTorrent.Messages;
 
 namespace MonoTorrent.Client
 {

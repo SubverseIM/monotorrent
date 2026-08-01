@@ -40,7 +40,6 @@ using NUnit.Framework;
 
 namespace MonoTorrent.Client
 {
-    [TestFixture]
     public class SocketConnectionTests
     {
         IPeerConnection Incoming;

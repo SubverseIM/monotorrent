@@ -42,6 +42,7 @@ using MonoTorrent.Messages;
 using MonoTorrent.Messages.Peer;
 using MonoTorrent.Messages.Peer.Libtorrent;
 using MonoTorrent.PiecePicking;
+using MonoTorrent.Messages;
 
 namespace MonoTorrent.Client.Modes
 {

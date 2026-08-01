@@ -27,47 +27,16 @@
 //
 
 
-using System;
 using System.Net;
-
-using ReusableTasks;
 
 namespace MonoTorrent.Connections.Dht
 {
-    public class DhtListener : IDhtListener
+    public class DhtListener : UdpListener, IDhtListener
     {
-        readonly UdpListener listener;
-
-        public event Action<ReadOnlyMemory<byte>, CompactEndPoint>? MessageReceived;
-
-        public event EventHandler<EventArgs>? StatusChanged {
-            add => listener.StatusChanged += value;
-            remove => listener.StatusChanged -= value;
-        }
-
-        public IPEndPoint? LocalEndPoint => listener.LocalEndPoint;
-
-        public ListenerStatus Status => listener.Status;
-
-        public DhtListener (UdpListener listener)
+        public DhtListener (IPEndPoint endpoint)
+            : base (endpoint)
         {
-            this.listener = listener ?? throw new ArgumentNullException (nameof (listener));
-            listener.MessageReceived += ListenerMessageReceived;
-        }
 
-        public ReusableTask SendAsync (ReadOnlyMemory<byte> buffer, CompactEndPoint endpoint)
-            => listener.SendAsync (buffer, endpoint);
-
-        public void Start ()
-            => listener.Start ();
-
-        public void Stop ()
-            => listener.Stop ();
-
-        void ListenerMessageReceived (ReadOnlyMemory<byte> buffer, CompactEndPoint endpoint)
-        {
-            if (!buffer.IsEmpty && buffer.Span[0] == (byte) 'd')
-                MessageReceived?.Invoke (buffer, endpoint);
         }
     }
 }

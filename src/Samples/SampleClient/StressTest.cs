@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using MonoTorrent;
 using MonoTorrent.Client;
 using MonoTorrent.Connections;
-using MonoTorrent.Connections.Peer;
 using MonoTorrent.Connections.TrackerServer;
 using MonoTorrent.PieceWriter;
 using MonoTorrent.TrackerServer;
@@ -187,9 +186,8 @@ namespace ClientSample
             var seeder = new ClientEngine (
                 new EngineSettings () with {
                     AllowedEncryption = ImmutableArray.Create<EncryptionType> (EncryptionType.PlainText),
-                    AllowedTransports = ImmutableArray.Create (PeerTransport.Tcp),
                     ListenEndPoints = new Dictionary<string, IPEndPoint> { { "ipv4", new IPEndPoint (IPAddress.Any, port++) } }.ToImmutableDictionary (),
-                    EnableDht = false,
+                    DhtEndPoint = null,
                     AllowLocalPeerDiscovery = false,
                 },
                 Factories.Default.WithBlockCacheCreator ((IPieceWriter writer, long capacity, CachePolicy policy, MemoryPool buffer) => {
@@ -210,8 +208,7 @@ namespace ClientSample
                         AllowedEncryption = new List<EncryptionType> { EncryptionType.PlainText }.ToImmutableArray (),
                         DiskCacheBytes = DataSize,
                         ListenEndPoints = new Dictionary<string, IPEndPoint> { { "ipv4", new IPEndPoint (IPAddress.Any, p) } }.ToImmutableDictionary (),
-                        EnableDht = false,
-                        AllowedTransports = ImmutableArray.Create (PeerTransport.Tcp),
+                        DhtEndPoint = null,
                         AllowLocalPeerDiscovery = false,
                         CacheDirectory = Path.Combine (DataDir, "Downloader_" + port + "_CacheDirectory")
                     },

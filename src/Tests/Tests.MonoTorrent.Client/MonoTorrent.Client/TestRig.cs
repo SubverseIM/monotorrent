@@ -298,7 +298,6 @@ namespace MonoTorrent.Client
 
         public IPEndPoint LocalEndPoint => null;
         public IPEndPoint PreferredLocalEndPoint { get; } = new IPEndPoint (IPAddress.None, 0);
-        public PeerTransport Protocol => PeerTransport.Tcp;
 
         public ListenerStatus Status { get; private set; }
 
@@ -381,7 +380,7 @@ namespace MonoTorrent.Client
 
         public ClientEngine Engine { get; }
 
-        public CustomListener Listener { get; private set; }
+        public CustomListener Listener => (CustomListener) Engine.PeerListeners[0];
 
         public TorrentManager Manager { get; set; }
 
@@ -468,8 +467,9 @@ namespace MonoTorrent.Client
             Writer = writer ?? new TestWriter ();
             var factories = Factories.Default
                 .WithDhtCreator (() => new ManualDhtEngine ())
+                .WithDhtListenerCreator (port => new NullDhtListener ())
                 .WithLocalPeerDiscoveryCreator (() => new ManualLocalPeerListener ())
-                .WithPeerConnectionListenerCreator (endpoint => Listener = new CustomListener ())
+                .WithPeerConnectionListenerCreator (endpoint => new CustomListener ())
                 .WithTrackerCreator ("custom", uri => new Tracker (new CustomTrackerConnection (uri)))
                 .WithPieceWriterCreator (files => writer);
                 ;
